@@ -3,8 +3,9 @@ name: word-master-skill
 description: >
   AI-driven Word document generation and formatting system. Converts Markdown or text
   into professionally formatted .docx files with Chinese typography standards, punctuation
-  correction, and template support. Use when user asks to "生成Word", "写文档", "创建文档",
-  "排版", "标点纠错", "生成报告", or mentions "word-master", "wpm".
+  correction, document type detection, and template support. Use when user asks to
+  "生成Word", "写文档", "创建文档", "排版", "标点纠错", "生成报告", "生成简历",
+  "写公文", "写小说", or mentions "word-master", "wpm".
 ---
 
 # Word Master Skill
@@ -20,7 +21,7 @@ This skill uses the `wpm` CLI (installed via `pip install word-master-cli`).
 | Command | Purpose |
 |---------|---------|
 | `wpm create <input> [-r ref.docx] [-o output.docx]` | Generate Word from Markdown/text |
-| `wpm format <input.docx> [-r ref.docx] [-o output.docx]` | Apply Chinese typography |
+| `wpm format <input.docx> [-r ref.docx] [-o output.docx] [--type TYPE]` | Apply Chinese typography (auto-detect document type) |
 | `wpm check <input.docx> [--fix] [--ai]` | Punctuation check & fix |
 | `wpm template list` | List available templates |
 | `wpm template import <docx>` | Import template from existing .docx |
@@ -101,8 +102,14 @@ wpm create content.md -o output.docx --json
 Apply Chinese typography standards:
 
 ```bash
-# Format with default Chinese standards (in-place)
+# Format with auto-detected document type (interactive prompt)
 wpm format output.docx
+
+# Format with specific document type (skip detection)
+wpm format output.docx --type resume
+wpm format output.docx --type novel
+wpm format output.docx --type official
+wpm format output.docx --type general
 
 # Format with reference document styles
 wpm format output.docx -r reference.docx
@@ -111,13 +118,18 @@ wpm format output.docx -r reference.docx
 wpm format output.docx -o formatted.docx
 ```
 
-**Default formatting includes**:
-- Fonts: Song Ti (body), Hei Ti (headings), Times New Roman (English)
-- Sizes: 小四 12pt (body), 三号 16pt / 四号 14pt (headings)
-- Line spacing: 1.5x
-- First-line indent: 2 characters
-- Page margins: 2.54cm top/bottom, 3.17cm left/right
-- Heading numbering normalization
+**Document type presets** (auto-detected or via `--type`):
+
+| Type | Body Font | Body Size | Line Spacing | Indent | Use Case |
+|------|-----------|-----------|--------------|--------|----------|
+| `general` | 宋体 | 12pt (小四) | 1.5x | 2 chars | General documents (default) |
+| `resume` | 宋体 | 10.5pt (五号) | 1.25x | none | Resumes/CVs |
+| `novel` | 宋体 | 12pt (小四) | 1.5x | 2 chars | Fiction/literature |
+| `official` | 仿宋 | 16pt (三号) | 1.0x | 2 chars | Government docs (GB/T 9704) |
+
+**Detection features**: Resume (keywords + contact info), Novel (chapter headings + dialogue), Official (formal language + closing phrases). Falls back to `general` if confidence is low.
+
+**Interactive behavior**: In terminal mode, prompts user to confirm detected type. With `--json` or `--quiet`, auto-applies detected type. Use `--type` to skip detection entirely.
 
 **Checkpoint — Formatting applied. Proceed to Step 4.**
 
@@ -145,7 +157,9 @@ wpm check output.docx --json
 - Full-width/half-width consistency
 - Unmatched paired symbols (brackets, quotes)
 - Extra spaces around punctuation
-- Consecutive punctuation
+- **Consecutive punctuation (context-aware)**:
+  - Same punctuation repeated (`。。`→`。`, `！！！`→`！`)
+  - Terminal punctuation followed by non-terminal (`。，`→`。`, `！；`→`！`)
 
 **Checkpoint — Document finalized.**
 
@@ -156,10 +170,15 @@ wpm check output.docx --json
 For agent workflows, combine all steps:
 
 ```bash
-# Generate → Format → Check
+# Generate → Format (auto-detect type) → Check
 wpm create "## 报告标题\n正文内容" -o report.docx && \
 wpm format report.docx && \
 wpm check report.docx --fix
+
+# Generate → Format (specific type) → Check
+wpm create "resume.md" -o resume.docx && \
+wpm format resume.docx --type resume && \
+wpm check resume.docx --fix
 ```
 
 Or with JSON output for each stage:
